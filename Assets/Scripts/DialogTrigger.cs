@@ -1,5 +1,5 @@
 using UnityEngine;
-using Valve.VR.InteractionSystem;
+using UnityEngine.XR.Interaction.Toolkit;
 
 public class DialogTrigger : MonoBehaviour
 {
@@ -16,9 +16,14 @@ public class DialogTrigger : MonoBehaviour
     public bool enableMouseClick = true;
     public bool enableKeyPress = true;
 
+    [Header("XR Interaction Toolkit Настройки")]
+    public XRSimpleInteractable xrInteractable;
+    public float interactDistance = 2f;
+
     private DialogSystem dialogSystem;
     private bool isPlayerNear = false;
     private Transform playerTransform;
+    private IXRInteractor currentInteractor;
 
     void Start()
     {
@@ -29,7 +34,6 @@ public class DialogTrigger : MonoBehaviour
         }
         else
         {
-            // Ищем автоматически в сцене
             dialogSystem = FindObjectOfType<DialogSystem>();
         }
 
@@ -45,31 +49,56 @@ public class DialogTrigger : MonoBehaviour
             Debug.LogWarning("Игрок с тегом 'Player' не найден!");
         }
 
-        // Настраиваем SteamVR Interactable
-        SetupSteamVRInteractable();
+        // Настраиваем XR Interaction Toolkit Interactable
+        SetupXRInteractable();
 
         // Скрываем подсказку при старте
         if (interactionHint != null)
             interactionHint.SetActive(false);
     }
 
-    void SetupSteamVRInteractable()
+    void SetupXRInteractable()
     {
-        // Добавляем компоненты SteamVR Interactable
-        var interactable = GetComponent<Interactable>();
-        if (interactable == null)
+        // Если XR Interactable уже есть, используем его
+        if (xrInteractable == null)
         {
-            interactable = gameObject.AddComponent<Interactable>();
+            xrInteractable = GetComponent<XRSimpleInteractable>();
+        }
+
+        // Создаем новый если нет
+        if (xrInteractable == null)
+        {
+            xrInteractable = gameObject.AddComponent<XRSimpleInteractable>();
+
+            // Настройки взаимодействия
+            xrInteractable.interactionLayers = InteractionLayerMask.GetMask("Default");
+            xrInteractable.selectMode = InteractableSelectMode.Single;
         }
 
         // Добавляем коллайдер для взаимодействия если его нет
+        // Для XR Interaction Toolkit:
+        // - Ray Interactor может работать с триггерами (через raycast)
+        // - Direct Interactor нужен обычный коллайдер (физический контакт)
+        // Для PC взаимодействия нужен триггер коллайдер
         var collider = GetComponent<Collider>();
         if (collider == null)
         {
-            var boxCollider = gameObject.AddComponent<BoxCollider>();
-            boxCollider.isTrigger = true;
-            boxCollider.size = Vector3.one * 2f;
+            // Создаем коллайдер как триггер для PC взаимодействия
+            // XR Ray Interactor все равно сможет с ним работать
+            var sphereCollider = gameObject.AddComponent<SphereCollider>();
+            sphereCollider.isTrigger = true; // Триггер для PC взаимодействия
+            sphereCollider.radius = interactDistance;
         }
+        // Если коллайдер уже есть, используем его как есть
+        // XR Interaction Toolkit будет работать с любым коллайдером
+
+        // Подписываемся на события XR Interaction Toolkit
+        xrInteractable.hoverEntered.AddListener(OnXRHoverEnter);
+        xrInteractable.hoverExited.AddListener(OnXRHoverExit);
+        xrInteractable.selectEntered.AddListener(OnXRSelect);
+        xrInteractable.selectExited.AddListener(OnXRSelectExit);
+        // Добавляем обработку активации (кнопка активации на контроллере)
+        xrInteractable.activated.AddListener(OnXRActivated);
     }
 
     void Update()
@@ -97,43 +126,63 @@ public class DialogTrigger : MonoBehaviour
         }
     }
 
-    // ==================== STEAMVR INTERACTION ====================
+    // ==================== XR INTERACTION TOOLKIT ====================
 
-    // Вызывается когда рука приближается к объекту
-    void OnHandHoverBegin(Hand hand)
+    void OnXRHoverEnter(HoverEnterEventArgs args)
     {
-        Debug.Log("Рука приблизилась к объекту");
-        if (showInteractionHint && interactionHint != null)
+        Debug.Log("XR контроллер приблизился к объекту");
+        currentInteractor = args.interactorObject;
+
+        if (showInteractionHint && interactionHint != null && !IsDialogActive())
         {
             interactionHint.SetActive(true);
         }
     }
 
-    // Вызывается когда рука убирается от объекта
-    void OnHandHoverEnd(Hand hand)
+    void OnXRHoverExit(HoverExitEventArgs args)
     {
-        Debug.Log("Рука убралась от объекта");
+        Debug.Log("XR контроллер убрался от объекта");
+        currentInteractor = null;
+
         if (showInteractionHint && interactionHint != null)
         {
             interactionHint.SetActive(false);
         }
     }
 
-    // Вызывается при нажатии кнопки на объекте в VR
-    void HandHoverUpdate(Hand hand)
+    void OnXRSelect(SelectEnterEventArgs args)
     {
-
-    }
-
-    // Универсальный метод для VR взаимодействия
-    public void OnVRInteract()
-    {
-        Debug.Log("VR взаимодействие вызвано");
+        Debug.Log("XR взаимодействие вызвано (Select/Trigger нажата)");
         if (!IsDialogActive())
         {
             StartDialog();
         }
     }
+
+    void OnXRSelectExit(SelectExitEventArgs args)
+    {
+        Debug.Log("XR Select завершено");
+    }
+
+    void OnXRActivated(ActivateEventArgs args)
+    {
+        Debug.Log("XR активация вызвана (Activate кнопка нажата)");
+        if (!IsDialogActive())
+        {
+            StartDialog();
+        }
+    }
+
+    // Универсальный метод для XR взаимодействия
+    public void OnXRInteract()
+    {
+        Debug.Log("XR взаимодействие вызвано через публичный метод");
+        if (!IsDialogActive())
+        {
+            StartDialog();
+        }
+    }
+
 
     // ==================== PC INTERACTION ====================
 
@@ -190,7 +239,7 @@ public class DialogTrigger : MonoBehaviour
         }
         else
         {
-            Debug.LogError("DialogSystem не найден! Прикрепите скрипт DialogSystem к объекту.");
+            Debug.LogError("DialogSystem не найден!");
         }
     }
 
@@ -220,17 +269,22 @@ public class DialogTrigger : MonoBehaviour
             Gizmos.color = Color.cyan;
             Gizmos.DrawWireSphere(transform.position, hintShowDistance);
         }
+
+        // Отображение радиуса XR взаимодействия
+        Gizmos.color = Color.magenta;
+        Gizmos.DrawWireSphere(transform.position, interactDistance);
     }
 
-    // Отладочная информация в редакторе
-    void OnGUI()
+    void OnDestroy()
     {
-#if UNITY_EDITOR
-        if (isPlayerNear)
+        // Отписываемся от событий при уничтожении объекта
+        if (xrInteractable != null)
         {
-            GUI.Label(new Rect(10, 10, 300, 20), "Игрок рядом с объектом");
-            GUI.Label(new Rect(10, 30, 300, 20), $"Нажми {interactKey} для взаимодействия");
+            xrInteractable.hoverEntered.RemoveListener(OnXRHoverEnter);
+            xrInteractable.hoverExited.RemoveListener(OnXRHoverExit);
+            xrInteractable.selectEntered.RemoveListener(OnXRSelect);
+            xrInteractable.selectExited.RemoveListener(OnXRSelectExit);
+            xrInteractable.activated.RemoveListener(OnXRActivated);
         }
-#endif
     }
 }

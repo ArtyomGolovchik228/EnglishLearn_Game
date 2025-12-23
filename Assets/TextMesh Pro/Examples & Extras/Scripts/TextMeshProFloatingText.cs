@@ -64,8 +64,6 @@ namespace TMPro.Examples
                 m_textMeshPro.color = new Color32((byte)Random.Range(0, 255), (byte)Random.Range(0, 255), (byte)Random.Range(0, 255), 255);
                 m_textMeshPro.fontSize = 24;
                 //m_textMeshPro.enableExtraPadding = true;
-                //m_textMeshPro.enableShadows = false;
-                m_textMeshPro.fontFeatures.Clear();
                 m_textMeshPro.text = string.Empty;
                 m_textMeshPro.isTextObjectScaleStatic = IsTextObjectScaleStatic;
 

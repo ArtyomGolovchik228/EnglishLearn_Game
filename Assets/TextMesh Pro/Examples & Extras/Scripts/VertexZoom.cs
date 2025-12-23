@@ -149,14 +149,6 @@ namespace TMPro.Examples
                     destinationVertices[vertexIndex + 2] += offset;
                     destinationVertices[vertexIndex + 3] += offset;
 
-                    // Restore Source UVS which have been modified by the sorting
-                    Vector4[] sourceUVs0 = cachedMeshInfoVertexData[materialIndex].uvs0;
-                    Vector4[] destinationUVs0 = textInfo.meshInfo[materialIndex].uvs0;
-
-                    destinationUVs0[vertexIndex + 0] = sourceUVs0[vertexIndex + 0];
-                    destinationUVs0[vertexIndex + 1] = sourceUVs0[vertexIndex + 1];
-                    destinationUVs0[vertexIndex + 2] = sourceUVs0[vertexIndex + 2];
-                    destinationUVs0[vertexIndex + 3] = sourceUVs0[vertexIndex + 3];
 
                     // Restore Source Vertex Colors
                     Color32[] sourceColors32 = cachedMeshInfoVertexData[materialIndex].colors32;
